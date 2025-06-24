@@ -2,139 +2,219 @@ import express from "express";
 import cors from "cors";
 import mongoose from "mongoose";
 
-// import initApp from "./src/modules/index.router.js";
-// import "dotenv/config";
-
-// const app = express();
-// const PORT = process.env.PORT || 6005;
-
-// initApp(app, express);
-
-// app.listen(PORT, () => {
-//   console.log(`listening on port ${PORT}`);
-// });
-
-
-//const express = require('express');
-//const mongoose = require('mongoose');
-//const cors = require('cors'); // Import CORS
-
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
-// Use CORS Middleware
-app.use(cors());
+// CORS Configuration
+const corsOptions = {
+  origin: process.env.CORS_ORIGIN || [
+    "http://localhost:3000",
+    "http://localhost:80",
+    "http://localhost:5173"
+  ],
+  credentials: true,
+  optionsSuccessStatus: 200,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+};
 
-// Middleware to parse JSON data
-app.use(express.json());
+// Middleware
+app.use(cors(corsOptions));
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-// MongoDB Connection URI
-const MONGO_URI = 'mongodb://127.0.0.1:27017';
-//const MONGO_URI = 'mongodb://mongo-shared-dev:fikTpih4U2!@20.218.241.192:27017/?directConnection=true&appName=mongosh+1.8.2&authMechanism=DEFAULT';
+// Database Connection
+const MONGODB_URI =
+  process.env.MONGODB_URI || "mongodb://localhost:27017/todos";
 
-const dbname = 'todos';
-
-// Connect to MongoDB
 mongoose
-  .connect(MONGO_URI, { dbname })
-  .then(() => console.log('Connected to MongoDB'))
-  .catch((error) => console.error('MongoDB connection error:', error));
+  .connect(MONGODB_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+  })
+  .then(() => {
+    console.log(`Connected to MongoDB at: ${MONGODB_URI}`);
+  })
+  .catch((err) => {
+    console.error("MongoDB connection error:", err.message);
+    process.exit(1);
+  });
 
-// Mongoose Schema and Model
-const userSchema = new mongoose.Schema({
-  username: { type: String, required: true },
-  email: { type: String, required: true },
-  age: { type: Number, default: 18 },
+// Mongoose Schema and Models
+const todoSchema = new mongoose.Schema(
+  {
+    title: {
+      type: String,
+      required: true,
+      trim: true,
+      minlength: 1,
+      maxlength: 200
+    },
+    date: {
+      type: String,
+      default: () => new Date().toISOString().split("T")[0]
+    },
+    activity: {
+      type: String,
+      trim: true,
+      maxlength: 100
+    },
+    description: {
+      type: String,
+      required: true,
+      trim: true,
+      minlength: 1,
+      maxlength: 1000
+    },
+    strStatus: {
+      type: String,
+      enum: ["pending", "in-progress", "completed"],
+      default: "pending"
+    },
+    isCompleted: {
+      type: Boolean,
+      default: false
+    }
+  },
+  {
+    timestamps: true
+  }
+);
+
+const Todos = mongoose.model("Todos", todoSchema);
+
+// Health check endpoint
+app.get("/", (req, res) => {
+  res.status(200).json({
+    message: "Todo API is running!",
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || "development"
+  });
 });
 
-const todoSchema = new mongoose.Schema({
-  title: { type: String, },
-  date: { type: String, },
-  activity: { type: String, },
-  description: { type: String, },
-  strStatus: { type: String, }
-});
-
-
-
-const User = mongoose.model('User', userSchema);
-const Todos = mongoose.model('Todos', todoSchema);
-
-// Route: Fetch all users
-app.get('/api/users', async (req, res) => {
+// Get all todos with pagination
+app.get("/api/gettodos", async (req, res) => {
   try {
-    const users = await User.find();
-    res.status(200).json(users);
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const totalCount = await Todos.countDocuments();
+    const todoList = await Todos.find()
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const numOfPages = Math.ceil(totalCount / limit);
+
+    res.status(200).json({
+      todoList,
+      numOfPages,
+      currentPage: page,
+      totalItems: totalCount
+    });
   } catch (error) {
-    res.status(500).json({ error: 'Internal Server Error' });
+    console.error("Error fetching todos:", error);
+    res.status(500).json({
+      message: "Internal server error"
+    });
   }
 });
-// Route: Fetch all users
-app.post('/api/todos', async (req, res) => {
-  const { title, description, activity, date, strStatus } = req.body;
 
+// Create new todo
+app.post("/api/todos", async (req, res) => {
   try {
+    const { title, description, activity, date, strStatus } = req.body;
+
+    if (!title || title.trim().length === 0) {
+      return res.status(400).json({ message: "Title is required" });
+    }
+    if (!description || description.trim().length === 0) {
+      return res.status(400).json({ message: "Description is required" });
+    }
+
     const todo = new Todos({
-      title,
-      description,
-      activity,
-      date,
-      strStatus
+      title: title.trim(),
+      description: description.trim(),
+      activity: activity?.trim(),
+      date: date || new Date().toISOString().split("T")[0],
+      strStatus: strStatus || "pending"
     });
+
     await todo.save();
 
-    return res.status(201).send({ todo });
+    res.status(201).json({
+      message: "Todo created successfully",
+      todo
+    });
   } catch (error) {
-    // if (error.errors.title)
-    //   return res.status(400).send({ message: "the Title field is required" });
-
-    // if (error.errors.description)
-    //   return res
-    //     .status(400)
-    //     .send({ message: "the Description field is required" });
-
-    // return res.status(500).send({ message: "Internal server error" });
-    console.log(error);
-    return res.status(500).send({ message: error });
-  }
-});
-// Route: Fetch all users
-app.get('/api/gettodos', async (req, res) => {
-
-  try {
-
-    const todoList = await Todos.find();
-
-    return res.status(201).send({ todoList });
-  } catch (error) {
-    // if (error.errors.title)
-    //   return res.status(400).send({ message: "the Title field is required" });
-
-    // if (error.errors.description)
-    //   return res
-    //     .status(400)
-    //     .send({ message: "the Description field is required" });
-
-    // return res.status(500).send({ message: "Internal server error" });
-    console.log(error);
-    return res.status(500).send({ message: error });
+    console.error("Error creating todo:", error);
+    res.status(500).json({
+      message: "Internal server error"
+    });
   }
 });
 
-// Routes
-app.get('/', async (req, res) => {
+// Update todo
+app.put("/api/todos/:id", async (req, res) => {
   try {
-    //const Todo = await TodoModel.find();
-    res.send("Todo");
-  }
-  catch (e) {
-    console.log(e);
-  }
+    const { id } = req.params;
+    const updates = req.body;
 
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid todo ID" });
+    }
+
+    const todo = await Todos.findByIdAndUpdate(
+      id,
+      { ...updates, updatedAt: new Date() },
+      { new: true, runValidators: true }
+    );
+
+    if (!todo) {
+      return res.status(404).json({ message: "Todo not found" });
+    }
+
+    res.status(200).json({
+      message: "Todo updated successfully",
+      todo
+    });
+  } catch (error) {
+    console.error("Error updating todo:", error);
+    res.status(500).json({
+      message: "Internal server error"
+    });
+  }
+});
+
+// Delete todo
+app.delete("/api/todos/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid todo ID" });
+    }
+
+    const todo = await Todos.findByIdAndDelete(id);
+
+    if (!todo) {
+      return res.status(404).json({ message: "Todo not found" });
+    }
+
+    res.status(200).json({
+      message: "Todo deleted successfully"
+    });
+  } catch (error) {
+    console.error("Error deleting todo:", error);
+    res.status(500).json({
+      message: "Internal server error"
+    });
+  }
 });
 
 // Start the server
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server is running on http://0.0.0.0:${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
 });
-
