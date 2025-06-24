@@ -1,4 +1,5 @@
 import { useState } from "react";
+import API_BASE_URL from "../utils/api.js";
 import { CustomErrorAlert } from "../utils/general.js";
 
 const useUpdateTodo = (setTodos) => {
@@ -7,16 +8,13 @@ const useUpdateTodo = (setTodos) => {
   const updateTodo = async (todo) => {
     try {
       setIsLoading(true);
-      const response = await fetch(
-        `https://fullstack-todolist-upnv.onrender.com/todos/${todo._id}`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ isCompleted: !todo.isCompleted }),
-        }
-      );
+      const response = await fetch(`${API_BASE_URL}/todos/${todo._id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ isCompleted: !todo.isCompleted })
+      });
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -30,7 +28,7 @@ const useUpdateTodo = (setTodos) => {
         )
       );
     } catch (error) {
-      CustomErrorAlert(error);
+      CustomErrorAlert(error.message);
     } finally {
       setIsLoading(false);
     }

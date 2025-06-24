@@ -1,4 +1,5 @@
 import { useState } from "react";
+import API_BASE_URL from "../utils/api.js";
 import { CustomErrorAlert } from "../utils/general.js";
 
 const useDeleteTodo = (fetchTodos, page, limit) => {
@@ -8,15 +9,12 @@ const useDeleteTodo = (fetchTodos, page, limit) => {
   const deleteTodo = async (id) => {
     try {
       setIsLoading(true);
-      const response = await fetch(
-        `https://fullstack-todolist-upnv.onrender.com/todos/${id}`,
-        {
-          method: "DELETE",
-          headers: {
-            "Content-Type": "application/json",
-          },
+      const response = await fetch(`${API_BASE_URL}/todos/${id}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json"
         }
-      );
+      });
 
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -24,7 +22,7 @@ const useDeleteTodo = (fetchTodos, page, limit) => {
       status = response.ok;
       await fetchTodos(page, limit);
     } catch (error) {
-      CustomErrorAlert(error);
+      CustomErrorAlert(error.message);
     } finally {
       setIsLoading(false);
     }

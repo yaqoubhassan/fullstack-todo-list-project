@@ -3,10 +3,8 @@ import { Box, TextField } from "@mui/material";
 import React, { useState } from "react";
 import { defaultTodo } from "../../utils/general.js";
 import useAddTodo from "../../hooks/useAddTodo.js";
-import axios from "axios";
 
 const AddTodoForm = ({ fetchTodos, page, limit }) => {
-  // let [newTodo, setNewTodo] = useState(defaultTodo);
   let [newTodo, setNewTodo] = useState({
     "title": "",
     "description": "",
@@ -28,15 +26,9 @@ const AddTodoForm = ({ fetchTodos, page, limit }) => {
   const handleSubmit = async (e) => {
     try {
       e.preventDefault();
-      const resp1 = await addTodo({ ...newTodo });
-      console.log("newTodo display");
-
-      const resp = axios.post("http://localhost:3000/api/todos", newTodo);
-      console.log(resp);
-    }
-    catch (ex) {
-      console.log("catch me ", ex);
-      // console.log(ex);
+      await addTodo({ ...newTodo });
+    } catch (ex) {
+      console.log("Error adding todo: ", ex);
     }
   };
 
@@ -48,7 +40,7 @@ const AddTodoForm = ({ fetchTodos, page, limit }) => {
         alignItems: "flex-start",
         flexGrow: 1,
         height: "70px",
-        gap: 4,
+        gap: 4
       }}
       noValidate
       autoComplete="off"
@@ -68,7 +60,7 @@ const AddTodoForm = ({ fetchTodos, page, limit }) => {
             : ""
         }
         sx={{
-          width: "30%",
+          width: "30%"
         }}
       />
       <TextField
@@ -89,7 +81,7 @@ const AddTodoForm = ({ fetchTodos, page, limit }) => {
             : ""
         }
         sx={{
-          flexGrow: 1,
+          flexGrow: 1
         }}
       />
       <LoadingButton
@@ -101,7 +93,7 @@ const AddTodoForm = ({ fetchTodos, page, limit }) => {
         sx={{
           p: "14px",
           boxShadow:
-            "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)",
+            "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)"
         }}
       >
         Add Todo
